@@ -10,5 +10,9 @@
       "target_id": "987654321",
       "target_type": "department"
     }
+  },
+  "region_aliases": {
+    "Charlotte": "Charlotte",
+    "NC West": "NC West"
   }
 }

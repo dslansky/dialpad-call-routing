@@ -37,11 +37,11 @@ class Settings:
             sf_instance_url=os.getenv("SF_INSTANCE_URL", ""),
             client_matrix_path=os.getenv(
                 "ROUTING_MATRIX_CLIENT_PATH",
-                "config/contact_routing_matrix.client.example.json",
+                "Inbound Calling Matrix - Client.csv",
             ),
             employee_matrix_path=os.getenv(
                 "ROUTING_MATRIX_EMPLOYEE_PATH",
-                "config/contact_routing_matrix.employee.example.json",
+                "Inbound Calling Matrix - Employee.csv",
             ),
             dialpad_target_map_path=os.getenv(
                 "DIALPAD_TARGET_MAP_PATH",

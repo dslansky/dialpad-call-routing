@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import set
 
 
 EXTENSION_PATTERN = re.compile(r"(ext\.?|x)\s*\d+$", re.IGNORECASE)

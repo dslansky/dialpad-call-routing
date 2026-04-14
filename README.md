@@ -4,10 +4,12 @@ Serverless Dialpad inbound call routing that looks up callers in Salesforce and 
 
 ## Status
 
-This repo is scaffolded for team handoff and implementation. It includes:
+This repo now includes the first working implementation slice for real-time routing. It includes:
 
 - Python Google Cloud Function entrypoints
-- Routing and phone-normalization helpers
+- Matrix-driven routing and phone-normalization helpers
+- Read-only Salesforce caller lookup and owner resolution
+- Dialpad target mapping and spillover transfer client
 - Config templates
 - Setup scripts for Dialpad router and call event subscriptions
 - Starter tests
@@ -52,8 +54,11 @@ tests/
 
 See `.env.example` for runtime configuration placeholders.
 
+This project currently expects a Python 3.10+ runtime for local development and deployment.
+
 ## Notes
 
 - Do not commit real secrets.
 - Do not commit PHI.
 - Salesforce should remain read-only during discovery and validation unless explicitly authorized.
+- The current spillover context store is in-memory, so production should move that state to a durable store before relying on failover across cold starts.
