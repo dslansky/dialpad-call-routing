@@ -1,0 +1,12 @@
+[
+  {
+    "contact_type": "Employee",
+    "onboarding_step": "Candidate Found",
+    "status": "Never Contacted",
+    "step_reason": "",
+    "primary_owner_scope": "site",
+    "primary_owner_field": "Technician_Recruiter__c",
+    "spillover_owner_scope": null,
+    "spillover_owner_field": null
+  }
+]

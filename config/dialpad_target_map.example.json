@@ -1,0 +1,14 @@
+{
+  "salesforce_user_targets": {
+    "005EXAMPLEUSERID": {
+      "target_id": "123456789",
+      "target_type": "user"
+    }
+  },
+  "logical_targets": {
+    "ivr_fallback": {
+      "target_id": "987654321",
+      "target_type": "department"
+    }
+  }
+}

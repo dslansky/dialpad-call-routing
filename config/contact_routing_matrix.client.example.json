@@ -1,0 +1,12 @@
+[
+  {
+    "contact_type": "Client",
+    "onboarding_step": "New",
+    "status": "Never Contacted",
+    "step_reason": "",
+    "primary_owner_scope": "region",
+    "primary_owner_field": "Back_End_Intake_Coordinator__c",
+    "spillover_owner_scope": null,
+    "spillover_owner_field": null
+  }
+]
