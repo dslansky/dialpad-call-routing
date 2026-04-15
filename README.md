@@ -84,6 +84,8 @@ See `.env.example` for runtime configuration placeholders. The key managed-confi
 
 This project currently expects a Python 3.10+ runtime for local development and deployment.
 
+See `docs/deployment.md` for the staged rollout checklist and current non-live deployment status.
+
 ## Notes
 
 - Do not commit real secrets.
