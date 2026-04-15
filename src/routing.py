@@ -4,7 +4,7 @@ import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 
 OWNER_FIELD_MAP = {
@@ -67,9 +67,29 @@ def _normalize_owner_descriptor(value: str | None) -> tuple[str | None, str | No
     return OWNER_FIELD_MAP.get(descriptor, (None, None))
 
 
-def _parse_json_rules(path: Path) -> list[RoutingRule]:
+def _normalize_json_rule(row: Mapping[str, object], contact_type: str | None = None) -> RoutingRule:
+    normalized_contact_type = _clean(str(row.get("contact_type") or contact_type or ""))
+    if not normalized_contact_type:
+        raise ValueError("Routing rule is missing contact_type")
+    return RoutingRule(
+        contact_type=normalized_contact_type,
+        onboarding_step=_clean(str(row["onboarding_step"])) if row.get("onboarding_step") is not None else None,
+        status=_clean(str(row["status"])) if row.get("status") is not None else None,
+        step_reason=_clean(str(row["step_reason"])) if row.get("step_reason") is not None else None,
+        primary_owner_scope=_clean(str(row["primary_owner_scope"])) if row.get("primary_owner_scope") is not None else None,
+        primary_owner_field=_clean(str(row["primary_owner_field"])) if row.get("primary_owner_field") is not None else None,
+        spillover_owner_scope=_clean(str(row["spillover_owner_scope"])) if row.get("spillover_owner_scope") is not None else None,
+        spillover_owner_field=_clean(str(row["spillover_owner_field"])) if row.get("spillover_owner_field") is not None else None,
+    )
+
+
+def load_rules_from_data(data: list[Mapping[str, object]], contact_type: str | None = None) -> list[RoutingRule]:
+    return [_normalize_json_rule(row, contact_type=contact_type) for row in data]
+
+
+def _parse_json_rules(path: Path, contact_type: str | None = None) -> list[RoutingRule]:
     data = json.loads(path.read_text())
-    return [RoutingRule(**row) for row in data]
+    return load_rules_from_data(data, contact_type=contact_type)
 
 
 def _parse_csv_rules(path: Path, contact_type: str) -> list[RoutingRule]:
@@ -99,12 +119,28 @@ def _parse_csv_rules(path: Path, contact_type: str) -> list[RoutingRule]:
 def load_rules(path: str, contact_type: str | None = None) -> list[RoutingRule]:
     file_path = Path(path)
     if file_path.suffix.lower() == ".json":
-        return _parse_json_rules(file_path)
+        return _parse_json_rules(file_path, contact_type=contact_type)
     if file_path.suffix.lower() == ".csv":
         if not contact_type:
             raise ValueError("contact_type is required when loading CSV routing rules")
         return _parse_csv_rules(file_path, contact_type)
     raise ValueError(f"Unsupported rule file type: {file_path.suffix}")
+
+
+def rules_to_json_ready(rules: Iterable[RoutingRule]) -> list[dict[str, str | None]]:
+    return [
+        {
+            "contact_type": rule.contact_type,
+            "onboarding_step": rule.onboarding_step,
+            "status": rule.status,
+            "step_reason": rule.step_reason,
+            "primary_owner_scope": rule.primary_owner_scope,
+            "primary_owner_field": rule.primary_owner_field,
+            "spillover_owner_scope": rule.spillover_owner_scope,
+            "spillover_owner_field": rule.spillover_owner_field,
+        }
+        for rule in rules
+    ]
 
 
 def _matches(rule_value: str | None, contact_value: str | None) -> bool:

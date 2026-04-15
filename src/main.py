@@ -6,16 +6,14 @@ from src.call_context_store import CallContext, InMemoryCallContextStore
 from src.config import Settings
 from src.dialpad_responses import end_response, route_response
 from src.logging_utils import log_event
-from src.routing import determine_route, load_rules
+from src.managed_config import GcsManagedConfigProvider, ManagedRoutingConfig
+from src.routing import determine_route
 from src.salesforce_client import SalesforceClient
-from src.target_mapping import DialpadTargetMap
 
 
 CALL_CONTEXT_STORE = InMemoryCallContextStore()
 _SETTINGS: Settings | None = None
-_CLIENT_RULES = None
-_EMPLOYEE_RULES = None
-_TARGET_MAP: DialpadTargetMap | None = None
+_CONFIG_PROVIDER: GcsManagedConfigProvider | None = None
 _SALESFORCE_CLIENT: SalesforceClient | None = None
 
 
@@ -26,28 +24,16 @@ def _get_settings() -> Settings:
     return _SETTINGS
 
 
-def _get_client_rules():
-    global _CLIENT_RULES
-    if _CLIENT_RULES is None:
+def _get_config_provider() -> GcsManagedConfigProvider:
+    global _CONFIG_PROVIDER
+    if _CONFIG_PROVIDER is None:
         settings = _get_settings()
-        _CLIENT_RULES = load_rules(settings.client_matrix_path, contact_type="Client")
-    return _CLIENT_RULES
+        _CONFIG_PROVIDER = GcsManagedConfigProvider(settings)
+    return _CONFIG_PROVIDER
 
 
-def _get_employee_rules():
-    global _EMPLOYEE_RULES
-    if _EMPLOYEE_RULES is None:
-        settings = _get_settings()
-        _EMPLOYEE_RULES = load_rules(settings.employee_matrix_path, contact_type="Employee")
-    return _EMPLOYEE_RULES
-
-
-def _get_target_map() -> DialpadTargetMap:
-    global _TARGET_MAP
-    if _TARGET_MAP is None:
-        settings = _get_settings()
-        _TARGET_MAP = DialpadTargetMap.load(settings.dialpad_target_map_path)
-    return _TARGET_MAP
+def _get_managed_config() -> ManagedRoutingConfig:
+    return _get_config_provider().get_config()
 
 
 def _get_salesforce_client() -> SalesforceClient:
@@ -63,22 +49,14 @@ def _get_salesforce_client() -> SalesforceClient:
     return _SALESFORCE_CLIENT
 
 
-def _ivr_response(settings: Settings) -> dict:
-    target_map = _get_target_map()
-    logical_target = target_map.get_logical_target("ivr_fallback")
-    if logical_target:
-        return route_response(logical_target.target_id, logical_target.target_type)
+def _ivr_response(settings: Settings, managed_config: ManagedRoutingConfig | None = None) -> dict:
+    if managed_config is not None:
+        logical_target = managed_config.target_map.get_logical_target("ivr_fallback")
+        if logical_target:
+            return route_response(logical_target.target_id, logical_target.target_type)
     if settings.ivr_fallback_target and settings.ivr_fallback_target_type:
         return route_response(settings.ivr_fallback_target, settings.ivr_fallback_target_type)
     return end_response("No IVR fallback target is configured.")
-
-
-def _rules_for_contact_type(contact_type: str):
-    if contact_type == "Client":
-        return _get_client_rules()
-    if contact_type == "Employee":
-        return _get_employee_rules()
-    return []
 
 
 def dialpad_router(request: Any):
@@ -98,20 +76,24 @@ def dialpad_router(request: Any):
         return _ivr_response(settings)
 
     salesforce_client = _get_salesforce_client()
-    target_map = _get_target_map()
+    try:
+        managed_config = _get_managed_config()
+    except Exception as exc:
+        log_event("managed_config_load_failed", call_id=call_id, error=str(exc))
+        return _ivr_response(settings)
 
     try:
         record = salesforce_client.find_contact_by_phone(external_number)
     except Exception as exc:
         log_event("salesforce_lookup_failed", call_id=call_id, error=str(exc))
-        return _ivr_response(settings)
+        return _ivr_response(settings, managed_config=managed_config)
 
     if not record:
         log_event("router_contact_not_found", call_id=call_id)
-        return _ivr_response(settings)
+        return _ivr_response(settings, managed_config=managed_config)
 
     matched_contact = salesforce_client.build_matched_contact(record)
-    rules = _rules_for_contact_type(matched_contact.contact_type)
+    rules = managed_config.rules_for_contact_type(matched_contact.contact_type)
     decision = determine_route(matched_contact, rules)
 
     if decision.route_kind != "owner":
@@ -121,8 +103,9 @@ def dialpad_router(request: Any):
             contact_id=matched_contact.contact_id,
             contact_type=matched_contact.contact_type,
         )
-        return _ivr_response(settings)
+        return _ivr_response(settings, managed_config=managed_config)
 
+    target_map = managed_config.target_map
     region_name = target_map.resolve_region_alias(matched_contact.region_value)
     primary_user_id = salesforce_client.resolve_owner_user_id(
         record,
@@ -141,7 +124,7 @@ def dialpad_router(request: Any):
             owner_field=decision.primary_owner_field,
             salesforce_user_id=primary_user_id,
         )
-        return _ivr_response(settings)
+        return _ivr_response(settings, managed_config=managed_config)
 
     spillover_user_id = salesforce_client.resolve_owner_user_id(
         record,

@@ -18,8 +18,12 @@ class DialpadTargetMap:
         self._region_aliases = raw_data.get("region_aliases", {})
 
     @classmethod
+    def from_data(cls, raw_data: dict) -> "DialpadTargetMap":
+        return cls(raw_data)
+
+    @classmethod
     def load(cls, path: str) -> "DialpadTargetMap":
-        return cls(json.loads(Path(path).read_text()))
+        return cls.from_data(json.loads(Path(path).read_text()))
 
     def get_salesforce_user_target(self, user_id: str | None) -> DialpadTarget | None:
         if not user_id:

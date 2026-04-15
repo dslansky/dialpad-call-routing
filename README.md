@@ -9,6 +9,7 @@ This repo now includes the first working implementation slice for real-time rout
 - Python Google Cloud Function entrypoints
 - Matrix-driven routing and phone-normalization helpers
 - Read-only Salesforce caller lookup and owner resolution
+- GCS-backed managed config loading with in-memory cache fallback
 - Dialpad target mapping and spillover transfer client
 - Config templates
 - Setup scripts for Dialpad router and call event subscriptions
@@ -19,10 +20,23 @@ This repo now includes the first working implementation slice for real-time rout
 
 1. Dialpad calls the router webhook.
 2. The app normalizes the inbound phone number.
-3. The app looks up the caller in Salesforce.
-4. The app determines the primary target from contact type, onboarding step, status, and reason.
-5. The app returns a Dialpad routing action immediately.
-6. A separate Dialpad call event webhook handles spillover transfers if the first target does not answer.
+3. The app loads routing rules and target mappings from Google Cloud Storage.
+4. The app looks up the caller in Salesforce.
+5. The app determines the primary target from contact type, onboarding step, status, and reason.
+6. The app returns a Dialpad routing action immediately.
+7. A separate Dialpad call event webhook handles spillover transfers if the first target does not answer.
+
+## Managed Config
+
+Production routing config should live in GCS as:
+
+- `routing-rules-client.json`
+- `routing-rules-employee.json`
+- `dialpad-target-map.json`
+
+The CSV matrices remain useful as source inputs, but the runtime no longer depends on them directly.
+
+Use `scripts/export_managed_config.py` to convert the current CSV matrices into normalized JSON ready to upload to GCS.
 
 ## Project Layout
 
@@ -33,6 +47,7 @@ src/
   salesforce_client.py
   routing.py
   config.py
+  managed_config.py
   phone_normalization.py
   dialpad_responses.py
   call_context_store.py
@@ -45,14 +60,22 @@ config/
 scripts/
   setup_router.py
   setup_call_events.py
+  export_managed_config.py
 tests/
   test_phone_normalization.py
   test_routing.py
+  test_managed_config.py
 ```
 
 ## Environment
 
-See `.env.example` for runtime configuration placeholders.
+See `.env.example` for runtime configuration placeholders. The key managed-config settings are:
+
+- `ROUTING_CONFIG_BUCKET`
+- `ROUTING_RULES_CLIENT_OBJECT`
+- `ROUTING_RULES_EMPLOYEE_OBJECT`
+- `DIALPAD_TARGET_MAP_OBJECT`
+- `ROUTING_CONFIG_CACHE_TTL_SECONDS`
 
 This project currently expects a Python 3.10+ runtime for local development and deployment.
 
@@ -62,3 +85,4 @@ This project currently expects a Python 3.10+ runtime for local development and 
 - Do not commit PHI.
 - Salesforce should remain read-only during discovery and validation unless explicitly authorized.
 - The current spillover context store is in-memory, so production should move that state to a durable store before relying on failover across cold starts.
+- If a GCS refresh fails, the app uses the last cached config in memory when available; otherwise it falls back to IVR behavior.

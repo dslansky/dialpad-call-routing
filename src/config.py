@@ -17,9 +17,11 @@ class Settings:
     sf_client_secret: str
     sf_token_url: str
     sf_instance_url: str
-    client_matrix_path: str
-    employee_matrix_path: str
-    dialpad_target_map_path: str
+    routing_config_bucket: str
+    client_rules_object: str
+    employee_rules_object: str
+    dialpad_target_map_object: str
+    routing_config_cache_ttl_seconds: int
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -35,16 +37,20 @@ class Settings:
             sf_client_secret=os.getenv("SF_CLIENT_SECRET", ""),
             sf_token_url=os.getenv("SF_TOKEN_URL", ""),
             sf_instance_url=os.getenv("SF_INSTANCE_URL", ""),
-            client_matrix_path=os.getenv(
-                "ROUTING_MATRIX_CLIENT_PATH",
-                "Inbound Calling Matrix - Client.csv",
+            routing_config_bucket=os.getenv("ROUTING_CONFIG_BUCKET", ""),
+            client_rules_object=os.getenv(
+                "ROUTING_RULES_CLIENT_OBJECT",
+                "routing-rules-client.json",
             ),
-            employee_matrix_path=os.getenv(
-                "ROUTING_MATRIX_EMPLOYEE_PATH",
-                "Inbound Calling Matrix - Employee.csv",
+            employee_rules_object=os.getenv(
+                "ROUTING_RULES_EMPLOYEE_OBJECT",
+                "routing-rules-employee.json",
             ),
-            dialpad_target_map_path=os.getenv(
-                "DIALPAD_TARGET_MAP_PATH",
-                "config/dialpad_target_map.example.json",
+            dialpad_target_map_object=os.getenv(
+                "DIALPAD_TARGET_MAP_OBJECT",
+                "dialpad-target-map.json",
+            ),
+            routing_config_cache_ttl_seconds=int(
+                os.getenv("ROUTING_CONFIG_CACHE_TTL_SECONDS", "300")
             ),
         )
