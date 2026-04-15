@@ -58,6 +58,8 @@ def _settings() -> Settings:
         employee_rules_object="routing-rules-employee.json",
         dialpad_target_map_object="dialpad-target-map.json",
         routing_config_cache_ttl_seconds=300,
+        call_context_collection="dialpad_call_contexts",
+        call_context_ttl_seconds=3600,
     )
 
 

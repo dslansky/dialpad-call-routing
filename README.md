@@ -10,6 +10,7 @@ This repo now includes the first working implementation slice for real-time rout
 - Matrix-driven routing and phone-normalization helpers
 - Read-only Salesforce caller lookup and owner resolution
 - GCS-backed managed config loading with in-memory cache fallback
+- Firestore-backed durable spillover call context
 - Dialpad target mapping and spillover transfer client
 - Config templates
 - Setup scripts for Dialpad router and call event subscriptions
@@ -64,6 +65,8 @@ scripts/
 tests/
   test_phone_normalization.py
   test_routing.py
+  test_call_context_store.py
+  test_call_events.py
   test_managed_config.py
 ```
 
@@ -76,6 +79,8 @@ See `.env.example` for runtime configuration placeholders. The key managed-confi
 - `ROUTING_RULES_EMPLOYEE_OBJECT`
 - `DIALPAD_TARGET_MAP_OBJECT`
 - `ROUTING_CONFIG_CACHE_TTL_SECONDS`
+- `CALL_CONTEXT_COLLECTION`
+- `CALL_CONTEXT_TTL_SECONDS`
 
 This project currently expects a Python 3.10+ runtime for local development and deployment.
 
@@ -84,5 +89,6 @@ This project currently expects a Python 3.10+ runtime for local development and 
 - Do not commit real secrets.
 - Do not commit PHI.
 - Salesforce should remain read-only during discovery and validation unless explicitly authorized.
-- The current spillover context store is in-memory, so production should move that state to a durable store before relying on failover across cold starts.
+- Spillover state is stored in Firestore so router and call-event webhooks can coordinate across cold starts and multiple instances.
+- Configure Firestore TTL cleanup on the `expires_at` field for the `dialpad_call_contexts` collection, even though the app also ignores expired records itself.
 - If a GCS refresh fails, the app uses the last cached config in memory when available; otherwise it falls back to IVR behavior.

@@ -4,7 +4,7 @@ from typing import Any
 
 from src.dialpad_client import DialpadClient
 from src.logging_utils import log_event
-from src.main import CALL_CONTEXT_STORE, _get_settings
+from src.main import _get_call_context_store, _get_settings
 
 
 NO_ANSWER_MARKERS = {
@@ -54,14 +54,12 @@ def dialpad_call_events(request: Any):
     if not call_id:
         return {"ok": True}, 200
 
-    context = CALL_CONTEXT_STORE.get(call_id)
-    if not context or context.spillover_attempted:
-        return {"ok": True}, 200
-
-    if not context.spillover_target_id or not context.spillover_target_type:
-        return {"ok": True}, 200
-
     if not _is_no_answer_event(payload):
+        return {"ok": True}, 200
+
+    store = _get_call_context_store()
+    context = store.mark_spillover_attempted(call_id)
+    if not context:
         return {"ok": True}, 200
 
     try:
@@ -70,9 +68,9 @@ def dialpad_call_events(request: Any):
             target_id=context.spillover_target_id,
             target_type=context.spillover_target_type,
         )
-        CALL_CONTEXT_STORE.mark_spillover_attempted(call_id)
         log_event("spillover_transfer_triggered", call_id=call_id)
     except Exception as exc:
+        store.clear_spillover_attempted(call_id)
         log_event("spillover_transfer_failed", call_id=call_id, error=str(exc))
 
     return {"ok": True}, 200

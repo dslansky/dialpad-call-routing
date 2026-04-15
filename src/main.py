@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.call_context_store import CallContext, InMemoryCallContextStore
+from src.call_context_store import CallContext, FirestoreCallContextStore
 from src.config import Settings
 from src.dialpad_responses import end_response, route_response
 from src.logging_utils import log_event
@@ -11,10 +11,10 @@ from src.routing import determine_route
 from src.salesforce_client import SalesforceClient
 
 
-CALL_CONTEXT_STORE = InMemoryCallContextStore()
 _SETTINGS: Settings | None = None
 _CONFIG_PROVIDER: GcsManagedConfigProvider | None = None
 _SALESFORCE_CLIENT: SalesforceClient | None = None
+_CALL_CONTEXT_STORE: FirestoreCallContextStore | None = None
 
 
 def _get_settings() -> Settings:
@@ -34,6 +34,17 @@ def _get_config_provider() -> GcsManagedConfigProvider:
 
 def _get_managed_config() -> ManagedRoutingConfig:
     return _get_config_provider().get_config()
+
+
+def _get_call_context_store() -> FirestoreCallContextStore:
+    global _CALL_CONTEXT_STORE
+    if _CALL_CONTEXT_STORE is None:
+        settings = _get_settings()
+        _CALL_CONTEXT_STORE = FirestoreCallContextStore(
+            collection_name=settings.call_context_collection,
+            ttl_seconds=settings.call_context_ttl_seconds,
+        )
+    return _CALL_CONTEXT_STORE
 
 
 def _get_salesforce_client() -> SalesforceClient:
@@ -135,7 +146,7 @@ def dialpad_router(request: Any):
     spillover_target = target_map.get_salesforce_user_target(spillover_user_id)
 
     if call_id:
-        CALL_CONTEXT_STORE.put(
+        _get_call_context_store().put(
             CallContext(
                 call_id=call_id,
                 contact_id=matched_contact.contact_id,

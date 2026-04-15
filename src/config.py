@@ -22,6 +22,8 @@ class Settings:
     employee_rules_object: str
     dialpad_target_map_object: str
     routing_config_cache_ttl_seconds: int
+    call_context_collection: str
+    call_context_ttl_seconds: int
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -52,5 +54,12 @@ class Settings:
             ),
             routing_config_cache_ttl_seconds=int(
                 os.getenv("ROUTING_CONFIG_CACHE_TTL_SECONDS", "300")
+            ),
+            call_context_collection=os.getenv(
+                "CALL_CONTEXT_COLLECTION",
+                "dialpad_call_contexts",
+            ),
+            call_context_ttl_seconds=int(
+                os.getenv("CALL_CONTEXT_TTL_SECONDS", "3600")
             ),
         )
