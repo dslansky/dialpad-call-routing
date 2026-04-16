@@ -172,7 +172,7 @@ class SalesforceClient:
             contact_id=record["Id"],
             contact_type=record.get("lmry__Contact_Type__c") or "Other",
             onboarding_step=record.get("lmry__Onboarding_Step__c"),
-            status=record.get("Status_custom__c") or record.get("lmry__Status__c"),
+            status=record.get("Status_custom__c"),
             step_reason=record.get("Step_Reason__c"),
             primary_site_id=record.get("lmry__Primary_Site__c"),
             region_value=record.get("Region__c"),

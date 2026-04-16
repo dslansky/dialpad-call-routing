@@ -37,15 +37,20 @@ class InMemoryCallContextStore:
     def _build_expires_at(self) -> datetime:
         return self._now_fn() + timedelta(seconds=max(self.ttl_seconds, 1))
 
+    def _normalize_call_id(self, call_id: Any) -> str:
+        return str(call_id)
+
     def _is_expired(self, context: CallContext) -> bool:
         return context.expires_at is not None and context.expires_at <= self._now_fn()
 
     def put(self, context: CallContext) -> None:
+        context.call_id = self._normalize_call_id(context.call_id)
         if context.expires_at is None:
             context.expires_at = self._build_expires_at()
         self._store[context.call_id] = context
 
     def get(self, call_id: str) -> CallContext | None:
+        call_id = self._normalize_call_id(call_id)
         context = self._store.get(call_id)
         if context and self._is_expired(context):
             self._store.pop(call_id, None)
@@ -53,6 +58,7 @@ class InMemoryCallContextStore:
         return context
 
     def mark_spillover_attempted(self, call_id: str) -> CallContext | None:
+        call_id = self._normalize_call_id(call_id)
         context = self._store.get(call_id)
         if not context or self._is_expired(context) or context.spillover_attempted:
             self._store.pop(call_id, None)
@@ -63,6 +69,7 @@ class InMemoryCallContextStore:
         return context
 
     def clear_spillover_attempted(self, call_id: str) -> None:
+        call_id = self._normalize_call_id(call_id)
         context = self._store.get(call_id)
         if context and not self._is_expired(context):
             context.spillover_attempted = False
@@ -93,8 +100,11 @@ class FirestoreCallContextStore:
     def _build_expires_at(self) -> datetime:
         return self._now_fn() + timedelta(seconds=max(self.ttl_seconds, 1))
 
-    def _document(self, call_id: str):
-        return self._collection.document(call_id)
+    def _normalize_call_id(self, call_id: Any) -> str:
+        return str(call_id)
+
+    def _document(self, call_id: Any):
+        return self._collection.document(self._normalize_call_id(call_id))
 
     def _normalize_datetime(self, value: datetime | None) -> datetime | None:
         if value is None:
@@ -104,6 +114,7 @@ class FirestoreCallContextStore:
         return value.astimezone(timezone.utc)
 
     def _payload_from_context(self, context: CallContext) -> dict[str, Any]:
+        context.call_id = self._normalize_call_id(context.call_id)
         expires_at = self._normalize_datetime(context.expires_at) or self._build_expires_at()
         context.expires_at = expires_at
         return {
@@ -123,7 +134,7 @@ class FirestoreCallContextStore:
             return None
         expires_at = self._normalize_datetime(data.get("expires_at"))
         context = CallContext(
-            call_id=data["call_id"],
+            call_id=self._normalize_call_id(data["call_id"]),
             contact_id=data.get("contact_id"),
             contact_type=data.get("contact_type"),
             primary_target_id=data["primary_target_id"],
